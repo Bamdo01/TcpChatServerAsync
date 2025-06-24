@@ -4,15 +4,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace NEXTCHATServ.Model
+namespace TcpChatServerAsync.Model.Enums
 {
     public enum ResponseCode
     {
-        Success = 30,
-        DuplicateId,         // 이미 존재하는 ID
-        WeakPassword,         // 안전하지 않은 암호
-        IdNotFound,           // 존재하지 않은 ID
-        PasswordMismatch      // 비밀번호 인증 실패
+        LoginSuccess = 30,       // 로그인 완료
+        LoginFail = 31,          // 로그인 실패
+        RegisterSuccess = 32,    // 회원가입 완료
+        IdAlreadyExists = 33,     // 이미 존재하는 ID
+        UnknownCommand
     }
 
 }

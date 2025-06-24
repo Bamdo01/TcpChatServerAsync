@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using MySqlConnector;
 
-namespace NEXTCHATServ.Database
+namespace TcpChatServerAsync.Database
 {
     public static class DbManager
     {
@@ -28,14 +28,15 @@ namespace NEXTCHATServ.Database
 
                     // users 테이블 생성 (없으면 자동 생성)
                     string createTableQuery = @"
-                        CREATE TABLE IF NOT EXISTS users (
-                        id INT PRIMARY KEY AUTO_INCREMENT,
-                        userid VARCHAR(50) NOT NULL UNIQUE,
-                        password VARCHAR(100) NOT NULL,
-                        phone VARCHAR(20),
-                        gender VARCHAR(10) NOT NULL,
-                        birthdate DATE NOT NULL
-                          );";
+                    CREATE TABLE IF NOT EXISTS users (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    userid VARCHAR(50) NOT NULL UNIQUE,
+                    password VARCHAR(100) NOT NULL,
+                    salt VARCHAR(100) NOT NULL,
+                    phone VARCHAR(20),
+                    gender VARCHAR(10) NOT NULL,
+                    birthdate DATE NOT NULL
+                        );";
 
                     string createChatTableQuery = @"
                         CREATE TABLE IF NOT EXISTS chat_messages (

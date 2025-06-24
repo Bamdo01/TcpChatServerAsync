@@ -4,13 +4,15 @@ using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
-using NEXTCHATServ.Model;
-using NEXTCHATServ.Network;
-using NEXTCHATServ.Database;
-using NEXTCHATServ.Managers;
 using static System.Net.Mime.MediaTypeNames;
+using NetMQ;
+using TcpChatServerAsync.Managers;
+using TcpChatServerAsync.Model;
+using TcpChatServerAsync.Database;
+using TcpChatServerAsync.Network;
+using TcpChatServerAsync.Model.Enums;
 
-namespace NEXTCHATServ.Core
+namespace TcpChatServerAsync.Core
 {
     /// <summary>
     /// 클라이언트로부터 수신된 명령을 처리하는 클래스
@@ -20,7 +22,7 @@ namespace NEXTCHATServ.Core
         /// <summary>
         /// 수신된 바이트 데이터를 해석하고 명령에 따라 적절히 처리
         /// </summary>
-        public static byte[] ProcessCommand(byte[] buffer, TcpClient client)
+        public static byte[] ProcessCommand(byte[] buffer)
         {
             // 버퍼 파싱 객체 생성
             PacketParser parser = new PacketParser(buffer);
@@ -40,11 +42,11 @@ namespace NEXTCHATServ.Core
 
                 case CommandCode.LOGIN:
                     // 로그인 처리
-                    return HandleLogin(parser, client);
+                    return HandleLogin(parser);
 
-                case CommandCode.FINDID:
-                    // ID 찾기 처리
-                    return HandleIdSearch(parser);
+                //case CommandCode.FINDID:
+                //    // ID 찾기 처리
+                //    return HandleIdSearch(parser);
 
                 case CommandCode.CHATMSG:
                     // 채팅 처리
@@ -52,7 +54,7 @@ namespace NEXTCHATServ.Core
 
                 default:
                     // 알 수 없는 명령 처리
-                    return new byte[] { (byte)ResponseCode.IdNotFound };
+                    return new byte[] { (byte)ResponseCode.UnknownCommand };
             }
         }
 
@@ -71,7 +73,7 @@ namespace NEXTCHATServ.Core
             GenderCode gender = (GenderCode)genderCodeByte;
 
             //벌스 데이트에 저장
-            DateTime birthDate = new((short)birthYear, birthMonth, birthDay);
+            DateTime birthDate = new(birthYear, birthMonth, birthDay);
 
 
             Console.WriteLine($"[회원가입 요청] ID: {userId}, PW: {password}, PN: {userPhone} 성별: {gender} 생일: {birthDate:yyyy-MM-dd}");
@@ -95,25 +97,27 @@ namespace NEXTCHATServ.Core
 
                 if (!isInserted)
                 {
-                    //TODO: DB 오류 ENUM 추가한뒤 올려주기
-                    Console.WriteLine("회원가입 실패 (DB 오류)");
-                   // return new byte[] { (byte)ResponseCode.InternalError };
+                    
+                    Console.WriteLine("회원가입 실패 데이터 포멧이 잘못되지 않을까.. 예외처");
+                    return new byte[] { (byte)ResponseCode.IdAlreadyExists };
                 }
                 else
                 {
                     Console.WriteLine("회원가입 성공");
-                    return new byte[] { (byte)ResponseCode.Success };
+                    return new byte[] { (byte)ResponseCode.RegisterSuccess };
                 }
 
 
             }
-            //실패 반환
-            return new byte[] { (byte)ResponseCode.DuplicateId};
+            //실패 반환(중복아이디)
+            Console.WriteLine("회원가입 실패(중복아이디)");
+            return new byte[] { (byte)ResponseCode.IdAlreadyExists};
+            
 
         }
 
         //로그인 요청 처리
-        private static byte[] HandleLogin(PacketParser parser, TcpClient client)
+        private static byte[] HandleLogin(PacketParser parser)
         {
             string userId = parser.ReadString();       // ID
             string password = parser.ReadString();     // PW
@@ -121,24 +125,39 @@ namespace NEXTCHATServ.Core
 
             Console.WriteLine($"[로그인 요청] ID: {userId}, PW: {password}");
 
-            //클라이언트 딕셔너리에 추가
-            ClientManager.TryAddClient(userId, client);
+            // 로그인 검증
+            bool isLoginSuccess = UserRepository.Login(userId, password);
 
-            // TODO: 로그인 검증 로직 필요
-            return new byte[] { (byte)ResponseCode.Success };
+            if (isLoginSuccess)
+            {
+                // 클라이언트 목록에 추가
+                ClientManager.TryAddClient(userId);
+
+                Console.WriteLine($"[로그인 성공] 사용자: {userId}");
+
+                //클라이언트 딕셔너리에 추가
+                ClientManager.TryAddClient(userId);
+
+                return new byte[] { (byte)ResponseCode.LoginSuccess }; // 0 또는 정의된 성공 코드
+            }
+            else
+            {
+                Console.WriteLine($"[로그인 실패] 사용자: {userId}");
+                return new byte[] { (byte)ResponseCode.LoginFail }; // 실패 코드 정의 필요
+            }
         }
 
         
-        //아이디 검색 처리
-        private static byte[] HandleIdSearch(PacketParser parser)
-        {
-            string userId = parser.ReadString();       // ID
+        ////아이디 검색 처리
+        //private static byte[] HandleIdSearch(PacketParser parser)
+        //{
+        //    string userId = parser.ReadString();       // ID
 
-            Console.WriteLine($"[ID 검색 요청] ID: {userId}");
+        //    Console.WriteLine($"[ID 검색 요청] ID: {userId}");
 
-            // TODO: ID 존재 여부 확인 로직 추가 필요
-            return new byte[] { (byte)ResponseCode.Success }; // 또는 "IdNotFound"
-        }
+        //    // TODO: ID 존재 여부 확인 로직 추가 필요
+        //    return new byte[] { (byte)ResponseCode.Success }; // 또는 "IdNotFound"
+        //}
 
 
         //나중에 시간 추가하기
@@ -156,21 +175,12 @@ namespace NEXTCHATServ.Core
                 Content = message,
                 Timestamp = DateTime.Now
             };
-
-
-
-            //목표 chatMsg를 DB에 저장후 프로토콜에 맞춰서 바이트코드로 변환한뒤 클라이언트 매니져에있는 클라이언트 딕셔너리에서 자신의 아이디를 제외한후 브로드 캐스트 하기
-            //1. UserRepository.SaveChatMessage(chatMsg); DB 저장완료
-            //2. public static byte[] BuildChatPacket(ChatMessage chatMsg) 하면 프로토콜에 맞춰서 바이트 코드로 변환
-            //3. 바이트코드와, userId를 매개변수로 삼는 브로드 캐스트 함수가 필요
-            //4. 락을 걸어야 하기 떄문에 클라이언트 매니져에서 딕셔너리 접근할것 나를 제외한 아이디와 클라이언트 정보를 반환하는 로직을 어디에? 클라이언트 매니져에 생성하기
-            
             
             UserRepository.SaveChatMessage(chatMsg);
 
             ChatBroadcaster.BroadcastChat(chatMsg, userId);
 
-            return new byte[] { (byte)ResponseCode.Success }; // 단순히 수신 성공 응답
+            return null; // 단순히 수신 성공 응답 해줄 필요 없는데
         }
     }
 }

@@ -4,12 +4,12 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
-using NEXTCHATServ.Core;
-using NEXTCHATServ.Database;
-using NEXTCHATServ.Managers;
+using TcpChatServerAsync.Core;
+using TcpChatServerAsync.Database;
+using TcpChatServerAsync.Managers;
 
 
-namespace NEXTCHATServ
+namespace TcpChatServerAsync
 {
     class Program
     {
@@ -22,7 +22,7 @@ namespace NEXTCHATServ
             DbManager.InitializeDatabase();
 
             // 서버 시작 (9000번 포트에서 대기)
-            Server.Start(9000);
+            Server.Start();
 
             
 

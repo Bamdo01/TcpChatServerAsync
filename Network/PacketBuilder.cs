@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using NEXTCHATServ.Model;
+using TcpChatServerAsync.Model;
+using TcpChatServerAsync.Model.Enums;
 
-namespace NEXTCHATServ.Network
+namespace TcpChatServerAsync.Network
 {
     public class PacketBuilder
     {
@@ -48,7 +49,7 @@ namespace NEXTCHATServ.Network
         public static byte[] BuildChatPacket(ChatMessage chatMsg)
         {
             return new PacketBuilder()
-                .AddByte((byte)CommandCode.CHATMSG)
+                .AddByte((byte)CommandCode.TOCHATMSG)
                 .AddByte((byte)chatMsg.Timestamp.Month)
                 .AddByte((byte)chatMsg.Timestamp.Day)
                 .AddShort((short)chatMsg.Timestamp.Year)

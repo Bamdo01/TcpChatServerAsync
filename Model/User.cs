@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TcpChatServerAsync.Model.Enums;
 
-namespace NEXTCHATServ.Model
+namespace TcpChatServerAsync.Model
 {
     public class User
     {

@@ -5,24 +5,24 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace NEXTCHATServ.Managers
+namespace TcpChatServerAsync.Managers
 {
     public static class ClientManager
     {
-        // 채팅방에 접속한 클라이언트 전용 딕셔너리
-        private static readonly Dictionary<string, TcpClient> connectedClients = new Dictionary<string, TcpClient>();
+        // 접속 중인 클라이언트 ID 목록 (중복 방지용)
+        private static readonly List<string> connectedClients = new List<string>();
 
-        //readonly 선언 시 또는 생성자에서만 값을 한 번 설정할 수 있고, 그 후에는 변경 불가능하다
-        private static readonly object lockObj = new();
+        // 멀티스레드에서 리스트 동기화할 때 잠글 용도
+        private static readonly object lockObj = new object();
 
         // 클라이언트 추가 (중복 로그인 방지)
-        public static bool TryAddClient(string username, TcpClient client)
+        public static bool TryAddClient(string username)
         {
             lock (lockObj)
             {
-                if (!connectedClients.ContainsKey(username))
+                if (!connectedClients.Contains(username))
                 {
-                    connectedClients.Add(username, client);
+                    connectedClients.Add(username);
                     Console.WriteLine($"{username} 접속됨");
                     return true;
                 }
@@ -32,39 +32,39 @@ namespace NEXTCHATServ.Managers
             }
         }
 
-        // 클라이언트 제거 나중에 관리자 권한으로 주기
-        public static bool TryRemoveClient(string username)
-        {
-            lock (lockObj)
-            {
-                if (connectedClients.Remove(username))
-                {
-                    Console.WriteLine($"{username} 연결 해제됨");
-                    return true;
-                }
+        //// 클라이언트 제거 나중에 관리자 권한으로 주기
+        //public static bool TryRemoveClient(string username)
+        //{
+        //    lock (lockObj)
+        //    {
+        //        if (connectedClients.Remove(username))
+        //        {
+        //            Console.WriteLine($"{username} 연결 해제됨");
+        //            return true;
+        //        }
 
-                return false;
-            }
-        }
+        //        return false;
+        //    }
+        //}
 
-        //Client 정보로 userID 찾아서 제거 (오버로드)
-        public static bool TryRemoveClient(TcpClient client)
-        {
-            lock (lockObj)
-            {
-                foreach (var kvp in connectedClients)
-                {
-                    if (kvp.Value == client)
-                    {
-                        connectedClients.Remove(kvp.Key);
-                        Console.WriteLine($"{kvp.Key} 연결 해제됨");
-                        return true;
-                    }
-                }
+        ////Client 정보로 userID 찾아서 제거 (오버로드)
+        //public static bool TryRemoveClient(TcpClient client)
+        //{
+        //    lock (lockObj)
+        //    {
+        //        foreach (var kvp in connectedClients)
+        //        {
+        //            if (kvp.Value == client)
+        //            {
+        //                connectedClients.Remove(kvp.Key);
+        //                Console.WriteLine($"{kvp.Key} 연결 해제됨");
+        //                return true;
+        //            }
+        //        }
 
-                return false;
-            }
-        }
+        //        return false;
+        //    }
+        //}
 
 
 
@@ -73,31 +73,31 @@ namespace NEXTCHATServ.Managers
         {
             lock (lockObj)
             {
-                return new List<string>(connectedClients.Keys);
+                return new List<string>(connectedClients);  // 그대로 복사
             }
         }
 
 
-        // 나(senderId)를 제외한 (userId, TcpClient) 목록 반환
-        public static List<(string userId, TcpClient client)> GetAllClientsExcept(string senderId)
-        {
-            List<(string userId, TcpClient client)> result = new List<(string, TcpClient)>();
+        //// 나(senderId)를 제외한 (userId, TcpClient) 목록 반환
+        //public static List<(string userId, TcpClient client)> GetAllClientsExcept(string senderId)
+        //{
+        //    List<(string userId, TcpClient client)> result = new List<(string, TcpClient)>();
 
-            lock (lockObj)
-            {
-                foreach (var kvp in connectedClients)
-                {
-                    string userId = kvp.Key;
-                    TcpClient client = kvp.Value;
+        //    lock (lockObj)
+        //    {
+        //        foreach (var kvp in connectedClients)
+        //        {
+        //            string userId = kvp.Key;
+        //            TcpClient client = kvp.Value;
 
-                    if (userId != senderId)
-                    {
-                        result.Add((userId, client));
-                    }
-                }
-            }
+        //            if (userId != senderId)
+        //            {
+        //                result.Add((userId, client));
+        //            }
+        //        }
+        //    }
 
-            return result;
-        }
+        //    return result;
+        //}
     }
 }

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace NEXTCHATServ.Model
+namespace TcpChatServerAsync.Model.Enums
 {
     public enum CommandCode
     {
@@ -12,6 +12,7 @@ namespace NEXTCHATServ.Model
         LOGIN,
         FINDID,
         FINDPW,
-        CHATMSG
+        CHATMSG,
+        TOCHATMSG = 36
     }
 }

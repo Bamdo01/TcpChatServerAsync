@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Text;
 
-namespace NEXTCHATServ.Network
+namespace TcpChatServerAsync.Network
 {
     /// <summary>
     /// 네트워크로 수신된 byte 배열을 구조화된 데이터(명령 코드, 문자열 등)로 파싱하는 클래스

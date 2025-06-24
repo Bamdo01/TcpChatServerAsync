@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using MySqlConnector;
-using NEXTCHATServ.Model;
+using TcpChatServerAsync.Model;
 
-namespace NEXTCHATServ.Database
+namespace TcpChatServerAsync.Database
 {
     public static class UserRepository
     {
@@ -16,15 +16,23 @@ namespace NEXTCHATServ.Database
             {
                 conn.Open();
 
-                string query = @"INSERT INTO users (userid, password, phone, gender, birthdate)
-                         VALUES (@id, @pw, @pn, @gender, @birth)";
+                // [1] 서버에서 salt 생성
+                string salt = SecurityHelper.GenerateSalt();
+
+                // [2] 클라이언트에서 받은 비밀번호 해시와 salt를 조합해 최종 해시
+                string finalHash = SecurityHelper.HashWithSalt(user.Password, salt);
+
+                // [3] salt 컬럼 추가된 쿼리
+                string query = @"INSERT INTO users (userid, password, salt, phone, gender, birthdate)
+                         VALUES (@id, @pw, @salt, @pn, @gender, @birth)";
 
                 MySqlCommand cmd = new MySqlCommand(query, conn);
                 cmd.Parameters.AddWithValue("@id", user.UserId);
-                cmd.Parameters.AddWithValue("@pw", user.Password); // 보안 위해 실제로는 해시 권장
+                cmd.Parameters.AddWithValue("@pw", finalHash);     // 서버 해싱 후 저장
+                cmd.Parameters.AddWithValue("@salt", salt);        // salt도 함께 저장
                 cmd.Parameters.AddWithValue("@pn", user.Phone);
-                cmd.Parameters.AddWithValue("@gender", user.Gender.ToString()); // 예: "Male", "Female"
-                cmd.Parameters.AddWithValue("@birth", user.BirthDate.ToString("yyyy-MM-dd")); // 날짜 포맷 통일
+                cmd.Parameters.AddWithValue("@gender", user.Gender.ToString());
+                cmd.Parameters.AddWithValue("@birth", user.BirthDate.ToString("yyyy-MM-dd"));
 
                 return cmd.ExecuteNonQuery() > 0;
             }
@@ -46,31 +54,64 @@ namespace NEXTCHATServ.Database
             }
         }
 
-        //채팅 저장하는 디비데스
-        //public static bool SaveChatMessage(string senderId, string message)
-        //{
-        //    using (MySqlConnection conn = DbManager.GetConnection())
-        //    {
-        //        conn.Open();
+        //로그인 함수
+        public static bool Login(string userid, string passwordHashFromClient)
+        {
+            try
+            {
+                using (MySqlConnection conn = DbManager.GetConnection())
+                {
+                    conn.Open();
 
-        //        string query = @"INSERT INTO chat_messages (sender_id, message) 
-        //                     VALUES (@sender, @msg)";
-        //        MySqlCommand cmd = new MySqlCommand(query, conn);
-        //        cmd.Parameters.AddWithValue("@sender", senderId);
-        //        cmd.Parameters.AddWithValue("@msg", message);
+                    // 1. password와 salt 모두 불러옴
+                    string query = @"
+                SELECT password, salt 
+                FROM users 
+                WHERE userid = @userid;
+            ";
 
-        //        return cmd.ExecuteNonQuery() > 0;
-        //    }
-        //}
+                    using (MySqlCommand cmd = new MySqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@userid", userid);
 
-        //채팅 저장하는 디비데스
+                        using (MySqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                string storedPasswordHash = reader.GetString("password");
+                                string storedSalt = reader.GetString("salt");
+
+                                // 2. 클라이언트 해시 + salt 조합 → 최종 해시 계산
+                                string combinedHash = SecurityHelper.HashWithSalt(passwordHashFromClient, storedSalt);
+
+                                // 3. 해시 비교
+                                return combinedHash == storedPasswordHash;
+                            }
+                            else
+                            {
+                                return false; // 해당 ID 없음
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[로그인 오류] {ex.Message}");
+                return false;
+            }
+        }
+
+
+
+        //DB에 채팅 로그 저장하는 함수
         public static bool SaveChatMessage(ChatMessage chatMessage)
         {
             using (MySqlConnection conn = DbManager.GetConnection())
             {
                 conn.Open();
 
-                string query = @"INSERT INTO chat_messages (sender_id, message, timestamp)
+                string query = @"INSERT INTO chat_messages (sender_id, message, sent_at)
                          VALUES (@sender, @msg, @time)";
 
                 using (MySqlCommand cmd = new MySqlCommand(query, conn))
